@@ -101,13 +101,131 @@ handlers._users.post = function (reqData, callback) {
 };
 
 // Users - put
-handlers._users.put = function (reqData, callback) {};
+// Required data: phone
+// Optional data: firstname, lastname, password (at least one must be specified)
+// @TODO - only let an authenticated user update their object
+handlers._users.put = function (reqData, callback) {
+  // Check for the required field
+  const phone =
+    typeof reqData.payload.phone === "string" &&
+    reqData.payload.phone.trim().length === 10
+      ? reqData.payload.phone.trim()
+      : false;
+
+  // Check for the optional
+  const firstName =
+    typeof reqData.payload.firstName === "string" &&
+    reqData.payload.firstName.trim().length > 0
+      ? reqData.payload.firstName.trim()
+      : false;
+
+  const lastName =
+    typeof reqData.payload.lastName === "string" &&
+    reqData.payload.lastName.trim().length > 0
+      ? reqData.payload.lastName.trim()
+      : false;
+
+  const password =
+    typeof reqData.payload.password === "string" &&
+    reqData.payload.password.trim().length > 0
+      ? reqData.payload.password.trim()
+      : false;
+
+  // Error if the phone is invalid
+  if (phone) {
+    // Error if nothing is sent to update
+    if (firstName || lastName || password) {
+      // Lookup the user
+      _data.read("users", phone, function (err, userData) {
+        if (!err && userData) {
+          // Update the fields necessary
+          if (firstName) {
+            userData.firstName = firstName;
+          }
+          if (lastName) {
+            userData.lastName = lastName;
+          }
+          if (password) {
+            userData.hashedPassword = helpers.hash(password);
+          }
+          // Store the new updates
+          _data.update("users", phone, userData, function (err) {
+            if (!err) {
+              callback(200);
+            } else {
+              console.log(err);
+              callback(500, { Error: "Could not update the user" });
+            }
+          });
+        } else {
+          callback(400, { Error: "The specified user does not exist" });
+        }
+      });
+    } else {
+      callback(400, { Error: "Missing fields to update" });
+    }
+  } else {
+    callback(400, { Error: "Required field is missing" });
+  }
+};
 
 // Users - get
-handlers._users.get = function (reqData, callback) {};
+// Required data: phone
+// Optional data: none
+// @TODO Only let an authenticated user access their object
+handlers._users.get = function (reqData, callback) {
+  // Check that the phone number provided is valid
+  const phone =
+    typeof reqData.queryStringObject.phone === "string" &&
+    reqData.queryStringObject.phone.trim().length === 10
+      ? reqData.queryStringObject.phone.trim()
+      : false;
+  if (phone) {
+    // Lookup the user
+    _data.read("users", phone, function (err, data) {
+      if (!err && data) {
+        // Remove the hashed password from the user object before returning it to the requester
+        delete data.hashedPassword;
+        callback(200, data);
+      } else {
+        callback(404);
+      }
+    });
+  } else {
+    callback(400, { Error: "Missing required field" });
+  }
+};
 
 // Users - delete
-handlers._users.delete = function (reqData, callback) {};
+// Required field: phone
+// TODO - Only let an authenticated user delete their object
+// TODO - Cleanuo (delete) any other data files associated with this user
+handlers._users.delete = function (reqData, callback) {
+  // Check that the phone number provided is valid
+  const phone =
+    typeof reqData.queryStringObject.phone === "string" &&
+    reqData.queryStringObject.phone.trim().length === 10
+      ? reqData.queryStringObject.phone.trim()
+      : false;
+  if (phone) {
+    // Lookup the user
+    _data.read("users", phone, function (err, data) {
+      if (!err && data) {
+        _data.delete("users", phone, function (err) {
+          if (!err) {
+            callback(200);
+          } else {
+            callback(500, { Error: "Could not delete the specified user" });
+          }
+        });
+      } else {
+        callback(400, { Error: "Could not find the specified user" });
+      }
+    });
+  } else {
+    callback(400, { Error: "Missing required field" });
+  }
+};
 
 // Ping handler
 handlers.ping = function (reqData, callback) {
