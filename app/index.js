@@ -8,9 +8,10 @@ const http = require("http");
 const https = require("https");
 const url = require("url");
 const StringDecoder = require("string_decoder").StringDecoder;
-const config = require("./config");
+const config = require("./lib/config");
 const fs = require("fs");
-const _data = require("./lib/data");
+const handlers = require("./lib/handlers");
+const helpers = require("./lib/helpers");
 
 // Instantiate the http server
 const httpServer = http.createServer((req, res) => {
@@ -22,7 +23,7 @@ httpServer.listen(config.httpPort, () => {
   console.log(`The server is listening on port ${config.httpPort}`);
 });
 
-// Instantiate the http server
+// Instantiate the https server
 const httpsServerOptions = {
   key: fs.readFileSync("./https/key.pem"),
   cert: fs.readFileSync("./https/cert.pem"),
@@ -71,16 +72,16 @@ const unifiedServer = function (req, res) {
         : handlers.notFound;
 
     // Construct the data object to send to the handler
-    const data = {
+    const reqData = {
       trimmedPath,
       queryStringObject,
       method,
       headers,
-      payload: buffer,
+      payload: helpers.parseJsonToObject(buffer),
     };
 
     // Route the request to the handler specified in the router
-    chosenhandler(data, (statusCode, payload) => {
+    chosenhandler(reqData, (statusCode, payload) => {
       // Use the status code called back by the handler or default to 200
       statusCode = typeof statusCode === "number" ? statusCode : 200;
 
@@ -102,20 +103,8 @@ const unifiedServer = function (req, res) {
   });
 };
 
-// Define the handlers
-const handlers = {};
-
-// Ping handler
-handlers.ping = function (data, callback) {
-  callback(200);
-};
-
-// Not found handler
-handlers.notFound = function (data, callback) {
-  callback(404);
-};
-
 // Define request router
 const router = {
   ping: handlers.ping,
+  users: handlers.users,
 };
